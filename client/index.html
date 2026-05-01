@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Isaac Sim Stream</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #1e1e1e; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Patch RTCPeerConnection BEFORE any ES modules load — the NVIDIA
+      // streaming library captures a reference at import time.
+      (function() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/config.json', false);
+        xhr.send();
+        if (xhr.status !== 200) { console.error('[TURN patch] config.json fetch failed:', xhr.status); return; }
+        var cfg = JSON.parse(xhr.responseText);
+        if (!cfg.turn) { console.warn('[TURN patch] no turn config'); return; }
+
+        var NativeRTC = window.RTCPeerConnection;
+        var turnServer = { urls: cfg.turn.urls, username: cfg.turn.username, credential: cfg.turn.credential };
+
+        var Patched = function(config) {
+          var p = Object.assign({}, config || {});
+          p.iceServers = (p.iceServers || []).concat(turnServer);
+          p.iceTransportPolicy = 'relay';
+          console.log('[TURN patch] RTCPeerConnection created with', p.iceServers.length, 'ICE servers, policy:', p.iceTransportPolicy);
+          return new NativeRTC(p);
+        };
+        Patched.prototype = NativeRTC.prototype;
+        Object.setPrototypeOf(Patched, NativeRTC);
+
+        // Use Object.defineProperty for browsers that protect window.RTCPeerConnection
+        try {
+          Object.defineProperty(window, 'RTCPeerConnection', {
+            value: Patched,
+            writable: true,
+            configurable: true,
+          });
+        } catch(e) {
+          window.RTCPeerConnection = Patched;
+        }
+
+        // Also patch webkitRTCPeerConnection if it exists
+        if (window.webkitRTCPeerConnection) {
+          try {
+            Object.defineProperty(window, 'webkitRTCPeerConnection', {
+              value: Patched,
+              writable: true,
+              configurable: true,
+            });
+          } catch(e) {}
+        }
+
+        console.log('[TURN patch] applied, RTCPeerConnection patched:', window.RTCPeerConnection !== NativeRTC);
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

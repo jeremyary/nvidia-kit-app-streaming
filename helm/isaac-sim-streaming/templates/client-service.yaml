@@ -1,0 +1,18 @@
+# This project was developed with assistance from AI tools.
+apiVersion: v1
+kind: Service
+metadata:
+  name: client
+  namespace: {{ include "isaac-sim-streaming.namespace" . }}
+  labels:
+    app.kubernetes.io/name: client
+    {{- include "isaac-sim-streaming.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: client
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

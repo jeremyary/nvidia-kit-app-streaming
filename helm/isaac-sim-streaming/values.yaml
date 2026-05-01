@@ -1,0 +1,57 @@
+# This project was developed with assistance from AI tools.
+
+namespace: isaac-sim-streaming
+
+clusterDomain: ""
+
+isaacSim:
+  image:
+    repository: nvcr.io/nvidia/isaac-sim
+    tag: "6.0.0-dev2"
+    pullPolicy: IfNotPresent
+  gpu:
+    product: NVIDIA-L40S
+    runtimeClassName: nvidia
+  resources:
+    requests:
+      cpu: 2
+      memory: 8Gi
+    limits:
+      cpu: 8
+      memory: 24Gi
+  cache:
+    storageClass: ""
+    size: 50Gi
+  route:
+    timeout: 1h
+
+coturn:
+  image:
+    repository: quay.io/coturn/coturn
+    tag: "4.7.0"
+  username: streaming
+  password: ""
+  relayPortRange:
+    min: 49200
+    max: 49300
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 1
+      memory: 512Mi
+
+stream:
+  width: 1920
+  height: 1080
+  fps: 30
+
+client:
+  image:
+    repository: ""
+    tag: latest
+    pullPolicy: Always
+
+ngc:
+  apiKey: ""

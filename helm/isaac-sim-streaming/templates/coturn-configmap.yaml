@@ -1,0 +1,34 @@
+# This project was developed with assistance from AI tools.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coturn-config
+  namespace: {{ include "isaac-sim-streaming.namespace" . }}
+  labels:
+    app.kubernetes.io/name: coturn
+    {{- include "isaac-sim-streaming.labels" . | nindent 4 }}
+data:
+  turnserver.conf: |
+    listening-port=3478
+    tls-listening-port=5349
+    listening-ip=0.0.0.0
+    relay-ip=0.0.0.0
+    min-port={{ .Values.coturn.relayPortRange.min }}
+    max-port={{ .Values.coturn.relayPortRange.max }}
+
+    fingerprint
+    lt-cred-mech
+    realm={{ include "isaac-sim-streaming.coturnRealm" . }}
+    user={{ .Values.coturn.username }}:TURN_PASSWORD_PLACEHOLDER
+
+    cert=/etc/coturn/tls/tls.crt
+    pkey=/etc/coturn/tls/tls.key
+
+    no-tlsv1
+    no-tlsv1_1
+    no-multicast-peers
+    no-cli
+
+    simple-log
+    log-file=stdout
+    verbose

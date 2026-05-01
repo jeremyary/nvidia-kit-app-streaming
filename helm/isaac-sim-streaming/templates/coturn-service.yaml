@@ -1,0 +1,18 @@
+# This project was developed with assistance from AI tools.
+apiVersion: v1
+kind: Service
+metadata:
+  name: coturn
+  namespace: {{ include "isaac-sim-streaming.namespace" . }}
+  labels:
+    app.kubernetes.io/name: coturn
+    {{- include "isaac-sim-streaming.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: coturn
+  ports:
+    - name: turns
+      port: 5349
+      targetPort: turns
+      protocol: TCP

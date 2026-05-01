@@ -1,0 +1,155 @@
+# This project was developed with assistance from AI tools.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: isaac-sim
+  namespace: {{ include "isaac-sim-streaming.namespace" . }}
+  labels:
+    app.kubernetes.io/name: isaac-sim
+    {{- include "isaac-sim-streaming.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: isaac-sim
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: isaac-sim
+    spec:
+      serviceAccountName: isaac-sim
+      {{- if .Values.ngc.apiKey }}
+      imagePullSecrets:
+        - name: ngc-pull-secret
+      {{- end }}
+      nodeSelector:
+        nvidia.com/gpu.product: {{ .Values.isaacSim.gpu.product }}
+      runtimeClassName: {{ .Values.isaacSim.gpu.runtimeClassName }}
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      securityContext:
+        fsGroup: 1234
+      containers:
+        - name: isaac-sim
+          image: {{ .Values.isaacSim.image.repository }}:{{ .Values.isaacSim.image.tag }}
+          imagePullPolicy: {{ .Values.isaacSim.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              /isaac-sim/runheadless.sh \
+                --/app/livestream/webrtcEnabled=true
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: PRIVACY_CONSENT
+              value: "Y"
+            - name: OMNI_KIT_ACCEPT_EULA
+              value: "Y"
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "all"
+            - name: WARP_CACHE_PATH
+              value: /tmp/warp_cache
+          ports:
+            - name: signaling
+              containerPort: 8011
+              protocol: TCP
+          resources:
+            requests:
+              cpu: {{ .Values.isaacSim.resources.requests.cpu | quote }}
+              memory: {{ .Values.isaacSim.resources.requests.memory }}
+              nvidia.com/gpu: 1
+            limits:
+              cpu: {{ .Values.isaacSim.resources.limits.cpu | quote }}
+              memory: {{ .Values.isaacSim.resources.limits.memory }}
+              nvidia.com/gpu: 1
+          volumeMounts:
+            - name: cache
+              mountPath: /isaac-sim/.cache/ov
+              subPath: cache
+            - name: cache
+              mountPath: /isaac-sim/.nv/ComputeCache
+              subPath: compute-cache
+            - name: cache
+              mountPath: /root/.nvidia-omniverse
+              subPath: nvidia-omniverse
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            tcpSocket:
+              port: signaling
+            initialDelaySeconds: 120
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 40
+          livenessProbe:
+            tcpSocket:
+              port: signaling
+            initialDelaySeconds: 600
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+        - name: tls-proxy
+          image: docker.io/nginx:1.27-alpine
+          ports:
+            - name: signaling-tls
+              containerPort: 8443
+              protocol: TCP
+          volumeMounts:
+            - name: tls-proxy-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: tls
+              mountPath: /etc/nginx/tls
+              readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: signaling-tls
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: isaac-sim-cache
+        - name: tmp
+          emptyDir:
+            sizeLimit: 10Gi
+        - name: tls
+          secret:
+            secretName: coturn-tls
+        - name: tls-proxy-conf
+          configMap:
+            name: tls-proxy-config
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: isaac-sim-cache
+  namespace: {{ include "isaac-sim-streaming.namespace" . }}
+  labels:
+    app.kubernetes.io/name: isaac-sim
+    {{- include "isaac-sim-streaming.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.isaacSim.cache.storageClass }}
+  storageClassName: {{ .Values.isaacSim.cache.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.isaacSim.cache.size }}

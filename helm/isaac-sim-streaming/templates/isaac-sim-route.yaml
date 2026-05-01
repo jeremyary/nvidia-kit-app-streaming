@@ -1,0 +1,23 @@
+# This project was developed with assistance from AI tools.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: isaac-sim-signaling
+  namespace: {{ include "isaac-sim-streaming.namespace" . }}
+  labels:
+    app.kubernetes.io/name: isaac-sim
+    {{- include "isaac-sim-streaming.labels" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/timeout: {{ .Values.isaacSim.route.timeout }}
+spec:
+  {{- $host := include "isaac-sim-streaming.signalingHost" . }}
+  {{- if $host }}
+  host: {{ $host }}
+  {{- end }}
+  to:
+    kind: Service
+    name: isaac-sim
+  port:
+    targetPort: signaling-tls
+  tls:
+    termination: passthrough

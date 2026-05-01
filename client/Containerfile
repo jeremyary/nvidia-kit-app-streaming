@@ -1,0 +1,24 @@
+# This project was developed with assistance from AI tools.
+FROM registry.access.redhat.com/ubi9/nodejs-22:latest AS build
+
+USER 0
+ENV NPM_CONFIG_CACHE=/tmp/.npm
+
+WORKDIR /opt/app-root/src
+COPY client/package.json client/.npmrc client/tsconfig.json client/vite.config.ts client/index.html ./
+RUN npm install --no-audit --no-fund
+
+COPY client/src ./src
+RUN npm run build
+
+FROM registry.access.redhat.com/ubi9/nginx-124:latest AS final
+
+USER 0
+COPY --from=build /opt/app-root/src/dist /opt/app-root/src
+
+RUN chown -R 1001:0 /opt/app-root/src /var/lib/nginx /var/log/nginx /run \
+    && chmod -R g=u /opt/app-root/src /var/lib/nginx /var/log/nginx /run
+
+USER 1001
+EXPOSE 8080
+CMD ["nginx", "-g", "daemon off;"]

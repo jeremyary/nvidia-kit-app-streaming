@@ -1,0 +1,7 @@
+# This project was developed with assistance from AI tools.
+apiVersion: v2
+name: isaac-sim-streaming
+description: Isaac Sim 6.0 browser streaming on OpenShift with WebRTC + TURN relay
+type: application
+version: 0.1.0
+appVersion: "6.0.0-dev2"

@@ -1,0 +1,61 @@
+# This project was developed with assistance from AI tools.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: {{ include "isaac-sim-streaming.namespace" . }}
+  labels:
+    app.kubernetes.io/name: client
+    {{- include "isaac-sim-streaming.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: client
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: client
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.client.image.repository }}:{{ .Values.client.image.tag }}
+          imagePullPolicy: {{ .Values.client.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /opt/app-root/config
+              readOnly: true
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: config
+          configMap:
+            name: client-config
+            items:
+              - key: config.json
+                path: config.json
+        - name: nginx-conf
+          configMap:
+            name: client-config
+            items:
+              - key: nginx.conf
+                path: nginx.conf

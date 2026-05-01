@@ -1,0 +1,22 @@
+# This project was developed with assistance from AI tools.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: client
+  namespace: {{ include "isaac-sim-streaming.namespace" . }}
+  labels:
+    app.kubernetes.io/name: client
+    {{- include "isaac-sim-streaming.labels" . | nindent 4 }}
+spec:
+  {{- $host := include "isaac-sim-streaming.clientHost" . }}
+  {{- if $host }}
+  host: {{ $host }}
+  {{- end }}
+  to:
+    kind: Service
+    name: client
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
