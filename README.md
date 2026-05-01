@@ -1,4 +1,4 @@
-# Isaac Sim / Isaac Lab Browser Streaming on OpenShift
+# Isaac Sim Browser Streaming on OpenShift
 
 > [!NOTE]
 > This project was developed with assistance from AI tools.
