@@ -43,8 +43,10 @@ spec:
             - -c
             - |
               set -e
-              cd /workspace/isaaclab
-              ./isaaclab.sh -p /scripts/{{ .Values.isaacLab.script }} --livestream 2
+              export OMNI_KIT_ALLOW_ROOT=1
+              /isaac-sim/runheadless.sh \
+                --/app/livestream/webrtcEnabled=true \
+                --exec /scripts/{{ .Values.isaacLab.script }}
           {{- else }}
           image: {{ .Values.isaacSim.image.repository }}:{{ .Values.isaacSim.image.tag }}
           imagePullPolicy: {{ .Values.isaacSim.image.pullPolicy }}
