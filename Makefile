@@ -3,6 +3,7 @@ SHELL := /bin/bash
 
 -include .env
 
+APP            ?= isaac-sim
 NAMESPACE      ?= isaac-sim-streaming
 CLUSTER_DOMAIN ?=
 NGC_API_KEY    ?=
@@ -13,11 +14,12 @@ GPU_RUNTIME_CLASS ?= nvidia
 STREAM_WIDTH   ?= 1920
 STREAM_HEIGHT  ?= 1080
 STREAM_FPS     ?= 30
+ISAAC_LAB_SCRIPT ?= demo_lab.py
 
 HELM_RELEASE   := isaac-sim-streaming
 HELM_CHART     := helm/isaac-sim-streaming
 
-.PHONY: help deploy undeploy status logs url build-client push-client gpu-info open restart template
+.PHONY: help deploy undeploy build-client push-client open restart template
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -37,6 +39,7 @@ deploy: ## Install Helm chart to OpenShift
 			| oc apply -n $(NAMESPACE) -f -; \
 	fi
 	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) \
+		--set app=$(APP) \
 		--set namespace=$(NAMESPACE) \
 		--set clusterDomain=$(CLUSTER_DOMAIN) \
 		--set ngc.apiKey=$(NGC_API_KEY) \
@@ -47,27 +50,12 @@ deploy: ## Install Helm chart to OpenShift
 		--set isaacSim.gpu.runtimeClassName=$(GPU_RUNTIME_CLASS) \
 		--set stream.width=$(STREAM_WIDTH) \
 		--set stream.height=$(STREAM_HEIGHT) \
-		--set stream.fps=$(STREAM_FPS)
+		--set stream.fps=$(STREAM_FPS) \
+		$(if $(filter isaac-lab,$(APP)),--set isaacLab.script=$(ISAAC_LAB_SCRIPT) --set-file isaacLab.scriptContent=scripts/$(ISAAC_LAB_SCRIPT))
 
 undeploy: ## Uninstall Helm chart
 	helm uninstall $(HELM_RELEASE) 2>/dev/null || true
 	@echo "NOTE: Namespace $(NAMESPACE) and PVCs are retained. Delete manually if needed."
-
-status: ## Show pods, services, and routes
-	@echo "=== Pods ==="
-	@oc get pods -n $(NAMESPACE) -o wide 2>/dev/null || echo "(namespace not found)"
-	@echo ""
-	@echo "=== Services ==="
-	@oc get svc -n $(NAMESPACE) 2>/dev/null || true
-	@echo ""
-	@echo "=== Routes ==="
-	@oc get routes -n $(NAMESPACE) 2>/dev/null || true
-
-logs: ## Tail Isaac Sim pod logs
-	oc logs -f deploy/isaac-sim -n $(NAMESPACE)
-
-url: ## Print the web client URL
-	@echo "https://$(shell oc get route client -n $(NAMESPACE) -o jsonpath='{.spec.host}' 2>/dev/null || echo 'ROUTE_NOT_FOUND')"
 
 build-client: ## Build web client container image
 	@if [ -z "$(CLIENT_IMAGE)" ]; then echo "ERROR: CLIENT_IMAGE is not set."; exit 1; fi
@@ -77,14 +65,9 @@ push-client: ## Push web client image to registry
 	@if [ -z "$(CLIENT_IMAGE)" ]; then echo "ERROR: CLIENT_IMAGE is not set."; exit 1; fi
 	podman push $(CLIENT_IMAGE)
 
-gpu-info: ## Show GPU node labels and taints
-	@echo "=== GPU Nodes ==="
-	@oc get nodes -l nvidia.com/gpu.product -o custom-columns=\
-	'NAME:.metadata.name,GPU:.metadata.labels.nvidia\.com/gpu\.product,MEMORY:.metadata.labels.nvidia\.com/gpu\.memory,TAINTS:.spec.taints[*].key' \
-	2>/dev/null || echo "No GPU nodes found. Is the GPU Operator installed?"
-
 open: ## Open web client URL in browser
-	@xdg-open "$$($(MAKE) -s url)" 2>/dev/null || open "$$($(MAKE) -s url)" 2>/dev/null || echo "Open this URL: $$($(MAKE) -s url)"
+	$(eval URL := https://$(shell oc get route client -n $(NAMESPACE) -o jsonpath='{.spec.host}' 2>/dev/null))
+	@xdg-open "$(URL)" 2>/dev/null || open "$(URL)" 2>/dev/null || echo "Open this URL: $(URL)"
 
 restart: ## Restart Isaac Sim pod
 	oc rollout restart deploy/isaac-sim -n $(NAMESPACE)

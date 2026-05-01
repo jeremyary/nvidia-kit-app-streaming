@@ -35,6 +35,17 @@ spec:
         fsGroup: 1234
       containers:
         - name: isaac-sim
+          {{- if eq .Values.app "isaac-lab" }}
+          image: {{ .Values.isaacLab.image.repository }}:{{ .Values.isaacLab.image.tag }}
+          imagePullPolicy: {{ .Values.isaacLab.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              cd /workspace/isaaclab
+              ./isaaclab.sh -p /scripts/{{ .Values.isaacLab.script }} --livestream 2
+          {{- else }}
           image: {{ .Values.isaacSim.image.repository }}:{{ .Values.isaacSim.image.tag }}
           imagePullPolicy: {{ .Values.isaacSim.image.pullPolicy }}
           command:
@@ -44,6 +55,7 @@ spec:
               set -e
               /isaac-sim/runheadless.sh \
                 --/app/livestream/webrtcEnabled=true
+          {{- end }}
           env:
             - name: ACCEPT_EULA
               value: "Y"
@@ -57,9 +69,13 @@ spec:
               value: "all"
             - name: WARP_CACHE_PATH
               value: /tmp/warp_cache
+            {{- if eq .Values.app "isaac-lab" }}
+            - name: LIVESTREAM
+              value: "2"
+            {{- end }}
           ports:
             - name: signaling
-              containerPort: 8011
+              containerPort: 49100
               protocol: TCP
           resources:
             requests:
@@ -71,6 +87,11 @@ spec:
               memory: {{ .Values.isaacSim.resources.limits.memory }}
               nvidia.com/gpu: 1
           volumeMounts:
+            {{- if eq .Values.app "isaac-lab" }}
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            {{- end }}
             - name: cache
               mountPath: /isaac-sim/.cache/ov
               subPath: cache
@@ -123,6 +144,12 @@ spec:
               cpu: 200m
               memory: 128Mi
       volumes:
+        {{- if eq .Values.app "isaac-lab" }}
+        - name: scripts
+          configMap:
+            name: isaac-lab-scripts
+            defaultMode: 0444
+        {{- end }}
         - name: cache
           persistentVolumeClaim:
             claimName: isaac-sim-cache

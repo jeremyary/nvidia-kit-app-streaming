@@ -1,5 +1,7 @@
 # This project was developed with assistance from AI tools.
 
+app: isaac-sim
+
 namespace: isaac-sim-streaming
 
 clusterDomain: ""
@@ -41,6 +43,14 @@ coturn:
     limits:
       cpu: 1
       memory: 512Mi
+
+isaacLab:
+  image:
+    repository: nvcr.io/nvidia/isaac-lab
+    tag: "3.0.0-beta1"
+    pullPolicy: IfNotPresent
+  script: demo_lab.py
+  scriptContent: ""
 
 stream:
   width: 1920

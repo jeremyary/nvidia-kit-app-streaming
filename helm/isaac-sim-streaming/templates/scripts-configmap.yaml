@@ -1,0 +1,14 @@
+# This project was developed with assistance from AI tools.
+{{- if eq .Values.app "isaac-lab" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: isaac-lab-scripts
+  namespace: {{ include "isaac-sim-streaming.namespace" . }}
+  labels:
+    app.kubernetes.io/name: isaac-sim
+    {{- include "isaac-sim-streaming.labels" . | nindent 4 }}
+data:
+  {{ .Values.isaacLab.script }}: |
+    {{- .Values.isaacLab.scriptContent | nindent 4 }}
+{{- end }}
